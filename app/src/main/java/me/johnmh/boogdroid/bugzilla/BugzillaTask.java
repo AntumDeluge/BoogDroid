@@ -18,8 +18,10 @@
 
 package me.johnmh.boogdroid.bugzilla;
 
+import android.content.Context;
 import android.os.AsyncTask;
 import android.support.annotation.Nullable;
+import android.widget.Toast;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -45,7 +47,9 @@ import java.util.UUID;
 
 import de.timroes.axmlrpc.XMLRPCClient;
 import de.timroes.axmlrpc.XMLRPCException;
+import me.johnmh.boogdroid.R;
 import me.johnmh.boogdroid.general.Server;
+import me.johnmh.boogdroid.ui.Application;
 import me.johnmh.util.Util.TaskListener;
 
 public class BugzillaTask extends AsyncTask<Void, Void, Void> {
@@ -56,6 +60,7 @@ public class BugzillaTask extends AsyncTask<Void, Void, Void> {
     private TaskListener listener;
 
     private Server server;
+    private Context context;
 
     public BugzillaTask(final Server server, final String method, final TaskListener listener) {
         this(server, method, "", listener);
@@ -88,8 +93,6 @@ public class BugzillaTask extends AsyncTask<Void, Void, Void> {
 
         Map<String, Object> args = null;
         try {
-//            Type type = new TypeToken<HashMap<String, Object>>() {}.getType();
-//            args = new Gson().fromJson(params, type);
             if (params == null || params.equals("")){
                 args = new HashMap<>();
             } else {
@@ -104,36 +107,11 @@ public class BugzillaTask extends AsyncTask<Void, Void, Void> {
         try {
             response = client.call(method, args == null ? null : new Object[]{args});
         } catch (XMLRPCException e) {
+            Toast.makeText(Application.getAppContext(), e.getMessage(), Toast.LENGTH_SHORT).show();
+
             e.printStackTrace();
         }
 
-        //Implementation on apache (not usable because package names (core library)
-//        XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
-//        URL url = null;
-//        try {
-//            url = new URL(server.getUrl() + "/xmlrpc.cgi");
-//            if(url.getHost() == null)
-//                throw new MalformedURLException();
-//        } catch (MalformedURLException e) {
-//            e.printStackTrace();
-//        }
-//        config.setServerURL(url);
-//        XmlRpcClient client = new XmlRpcClient();
-//        XmlRpcCommonsTransportFactory transportFactory = new XmlRpcCommonsTransportFactory(client);
-//        // set the HttpClient so that we retain cookies
-//      //  transportFactory.setHttpClient(HttpClient.get );
-//        client.setTransportFactory(transportFactory);
-//        client.setConfig(config);
-//
-//        HashMap<String, Object> args = new HashMap<>();
-//        args.put("login", server.getName());
-//        args.put("password", server.getPassword());
-//        HashMap<String, Object> result = null;
-//        try {
-//            result = (HashMap<String, Object>) client.execute(method, new Object[]{args});
-//        } catch (XmlRpcException e) {
-//            e.printStackTrace();
-//        }
         listener.doInBackground(response);
         return null;
     }
@@ -209,7 +187,6 @@ public class BugzillaTask extends AsyncTask<Void, Void, Void> {
             request.put("params", array);
 
             // Send the request
-            //final HttpClient httpClient = new DefaultHttpClient();
             final HttpClient httpClient = MySSLSocketFactory.getNewHttpClient();
             final HttpPost httpPost = new HttpPost(server.getUrl() + "/jsonrpc.cgi");
             httpPost.addHeader("Content-Type", "application/json");
@@ -217,7 +194,7 @@ public class BugzillaTask extends AsyncTask<Void, Void, Void> {
             HttpEntity entity = httpClient.execute(httpPost).getEntity();
             response = EntityUtils.toString(entity);
         } catch (final Exception e) {
-            e.printStackTrace();
+            Toast.makeText(Application.getAppContext(), e.getMessage(), Toast.LENGTH_SHORT).show();
         }
 
         listener.doInBackground(response);

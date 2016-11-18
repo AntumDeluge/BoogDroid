@@ -18,7 +18,7 @@
 
 package me.johnmh.boogdroid.general;
 
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.widget.BaseAdapter;
 
 import java.util.ArrayList;
@@ -44,12 +44,13 @@ public abstract class Bug {
     protected Product product;
 
     private BaseAdapter adapter;
-    private ActionBarActivity activity;
+    private AppCompatActivity activity;
     private BugInfoFragment fragment;
+    private String resolution;
 
-    protected abstract void loadComments();
+    public abstract void loadComments();
 
-    public void setAdapterComment(final BaseAdapter adapter, final ActionBarActivity activity, final BugInfoFragment fragment) {
+    public void setAdapterComment(final BaseAdapter adapter, final AppCompatActivity activity, final BugInfoFragment fragment) {
         this.adapter = adapter;
         this.activity = activity;
         this.fragment = fragment;
@@ -136,6 +137,10 @@ public abstract class Bug {
         this.product = product;
     }
 
+    public Product getProduct() {
+        return product;
+    }
+
     public void setId(int id) {
         this.id = id;
     }
@@ -143,5 +148,13 @@ public abstract class Bug {
     @Override
     public String toString() {
         return summary;
+    }
+
+    public String getResolution() {
+        return resolution;
+    }
+
+    public void setResolution(String resolution) {
+        this.resolution = resolution;
     }
 }

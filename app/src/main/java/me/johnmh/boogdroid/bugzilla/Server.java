@@ -19,16 +19,18 @@
 package me.johnmh.boogdroid.bugzilla;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
 
+import me.johnmh.boogdroid.general.BugResolutionChanges;
+import me.johnmh.boogdroid.general.BugStatusChanges;
+import me.johnmh.boogdroid.general.StatusInfo;
 import me.johnmh.util.Util.TaskListener;
 
 public class Server extends me.johnmh.boogdroid.general.Server {
@@ -43,7 +45,6 @@ public class Server extends me.johnmh.boogdroid.general.Server {
 
     @Override
     protected void loadProducts() {
-        // Get all the products' ids and pass it to loadProductsFromIds()
         final BugzillaTask task = new BugzillaTask(this, "Product.get_accessible_products", new TaskListener() {
             @Override
             public void doInBackground(final Object response) {
@@ -60,6 +61,127 @@ public class Server extends me.johnmh.boogdroid.general.Server {
 
         });
         task.execute();
+
+        new BugzillaTask(this, "Bug.fields", "'names':['bug_status', 'resolution']", new TaskListener() {
+            @Override
+            public void doInBackground(Object response) {
+                if (isUseJson()) {
+                    doJsonParse(response);
+                } else {
+                    doXmlParse(response);
+                }
+                doXmlParse(response);
+            }
+
+            private void doJsonParse(Object response) {
+                //TODO: Need a server with json to check this implementation
+                final JSONObject object;
+                try {
+                    object = new JSONObject(response.toString());
+                    JSONArray fields = object.getJSONArray("fields");
+                    for (int i = 0; i < fields.length(); i++) {
+                        JSONObject field = fields.getJSONObject(i);
+                        Object displayName = field.get("display_name");
+                        if (displayName.equals("Status")) {
+                            loadStatusJson(field);
+                        } else if (displayName.equals("Resolution")) {
+                            loadResolutionJson(field);
+                        }
+                    }
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
+            }
+
+            private void loadStatusJson(JSONObject field) throws JSONException {
+                JSONArray values = field.getJSONArray("values");
+                BugStatusChanges changes = new BugStatusChanges();
+                for (int j = 0; j < values.length(); j++) {
+                    JSONObject status = values.getJSONObject(j);
+                    String name = status.getString("name");
+                    StatusInfo statusInfo = new StatusInfo();
+                    statusInfo.setName(name);
+                    JSONArray canChangeToList = status.getJSONArray("can_change_to");
+                    ArrayList<ChangeStatusInfo> changeStatusInfoList = new ArrayList<>();
+                    for (int k = 0; k < canChangeToList.length(); k++) {
+                        JSONObject statusInfoMap = canChangeToList.getJSONObject(j);
+                        ChangeStatusInfo changeStatusInfo = new ChangeStatusInfo();
+                        changeStatusInfo.setName(statusInfoMap.getString("name"));
+                        changeStatusInfo.setCommentRequired(statusInfoMap.getBoolean("comment_required"));
+                        changeStatusInfoList.add(changeStatusInfo);
+                    }
+                    statusInfo.setChangeList(changeStatusInfoList);
+                    statusInfo.setOpen(status.getBoolean("is_open"));
+                    changes.put(name, statusInfo);
+                }
+                setStatusChanges(changes);
+            }
+
+            private void loadResolutionJson(JSONObject field) throws JSONException {
+                JSONArray values = field.getJSONArray("values");
+                BugResolutionChanges resolution = new BugResolutionChanges();
+                for (int j = 0; j < values.length(); j++) {
+                    JSONObject status = values.getJSONObject(j);
+                    String name = status.getString("name");
+                    resolution.add(name);
+                }
+                setResolutionValues(resolution);
+            }
+
+            private void doXmlParse(Object response) {
+                List fields = Arrays.asList((Object[]) ((HashMap<String, Object>)response).get("fields"));
+                for (Object field : fields) {
+                    HashMap<String, Object> fieldMap = (HashMap<String, Object>) field;
+                    Object displayName = fieldMap.get("display_name");
+                    if (displayName.equals("Status")) {
+                        loadStatusXml(fieldMap);
+                    } else if (displayName.equals("Resolution")) {
+                        loadResolutionXml(fieldMap);
+                    }
+                }
+            }
+
+            private void loadStatusXml(HashMap<String, Object> fieldMap) {
+                List values = Arrays.asList((Object[]) fieldMap.get("values"));
+                BugStatusChanges changes = new BugStatusChanges();
+                for (Object value : values) {
+                    HashMap<String, Object> status = (HashMap<String, Object>) value;
+                    String name = (String)status.get("name");
+                    List changeToList = Arrays.asList((Object[])status.get("can_change_to"));
+                    ArrayList<ChangeStatusInfo> changeStatusInfoList = new ArrayList<>();
+                    for (Object canChangeTo : changeToList) {
+                        HashMap<String, Object> statusInfoMap = (HashMap<String, Object>) canChangeTo;
+                        ChangeStatusInfo changeStatusInfo = new ChangeStatusInfo();
+                        changeStatusInfo.setName((String)statusInfoMap.get("name"));
+                        changeStatusInfo.setCommentRequired((Boolean)statusInfoMap.get("comment_required"));
+                        changeStatusInfoList.add(changeStatusInfo);
+                    }
+                    StatusInfo statusInfo = new StatusInfo();
+                    statusInfo.setName(name);
+                    statusInfo.setChangeList(changeStatusInfoList);
+                    statusInfo.setOpen((Boolean)status.get("is_open"));
+                    changes.put(name, statusInfo);
+                }
+                setStatusChanges(changes);
+            }
+
+            private void loadResolutionXml(HashMap<String, Object> fieldMap) {
+                List values = Arrays.asList((Object[]) fieldMap.get("values"));
+                BugResolutionChanges changes = new BugResolutionChanges();
+                for (Object value : values) {
+                    HashMap<String, Object> resolution = (HashMap<String, Object>) value;
+                    String name = (String) resolution.get("name");
+                    changes.add(name);
+                }
+                setResolutionValues(changes);
+            }
+
+            @Override
+            public void onPostExecute(Object response) {
+
+            }
+        }).execute();
     }
 
     private void doReadXml(Object response) {
@@ -157,5 +279,4 @@ public class Server extends me.johnmh.boogdroid.general.Server {
         });
         task.execute();
     }
-
 }

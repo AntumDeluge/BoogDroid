@@ -18,22 +18,31 @@
 
 package me.johnmh.boogdroid.ui;
 
-import android.app.Activity;
+import android.content.Context;
 import android.os.Bundle;
 import android.support.v4.app.ListFragment;
 import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.util.HashMap;
+
 import me.johnmh.boogdroid.R;
+import me.johnmh.boogdroid.bugzilla.BugzillaTask;
 import me.johnmh.boogdroid.general.Bug;
 import me.johnmh.boogdroid.general.Server;
 import me.johnmh.boogdroid.general.User;
@@ -85,9 +94,10 @@ public class BugInfoFragment extends ListFragment {
     @Override
     public void onViewCreated(final View view, final Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        final ActionBarActivity activity = (ActionBarActivity) getActivity();
+        final AppCompatActivity activity = (AppCompatActivity) getActivity();
 
-        getListView().addHeaderView(mainView);
+        ListView listView = getListView();
+        listView.addHeaderView(mainView);
 
         final AdapterComment adapter = new AdapterComment(activity, bug.getComments());
 
@@ -109,6 +119,57 @@ public class BugInfoFragment extends ListFragment {
 
             }
         });
+
+        View footer = ((LayoutInflater) getActivity().getSystemService(Context.LAYOUT_INFLATER_SERVICE)).inflate(R.layout.footer_comment, null, false);
+
+        final EditText editComment = (EditText)footer.findViewById(R.id.editComment);
+        editComment.setText("");
+        Button addComment = (Button)footer.findViewById(R.id.addComment);
+        addComment.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String comment = JSONObject.quote(editComment.getText().toString());
+                final Server server = bug.getProduct().getServer();
+                final BugzillaTask task = new BugzillaTask(server, "Bug.add_comment", "'id':" + bug.getId() +", 'comment': "+comment, new Util.TaskListener() {
+
+                    @Override
+                    public void doInBackground(final Object response) {
+                        if (server.isUseJson()) {
+                            doJsonParse(response);
+                        } else {
+                            doXmlParse(response);
+                        }
+                    }
+
+                    private void doJsonParse(Object response) {
+                        //TODO: It returns the new comment id. So you could only reload that one
+                        try {
+                            System.out.println(response);
+                        } catch (final Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+
+                    private void doXmlParse(Object response) {
+                        //TODO: It returns the new comment id. So you could only reload that one
+                        try {
+                            System.out.println(response);
+                        } catch (final Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+
+                    @Override
+                    public void onPostExecute(final Object response) {
+                        updateView();
+                        bug.loadComments();
+                    }
+                });
+                task.execute();
+            }
+        });
+        listView.addFooterView(footer);
+
         setListAdapter(adapter);
         bug.setAdapterComment(adapter, activity, this);
     }
@@ -146,6 +207,8 @@ public class BugInfoFragment extends ListFragment {
         textPriority.setText(bug.getPriority());
         TextView textStatus = (TextView) mainView.findViewById(R.id.status);
         textStatus.setText(bug.getStatus());
+        TextView textResolution = (TextView) mainView.findViewById(R.id.resolution);
+        textResolution.setText(bug.getResolution());
 
         TextView textDescription = (TextView) mainView.findViewById(R.id.description);
         textDescription.setText(bug.getDescription());
